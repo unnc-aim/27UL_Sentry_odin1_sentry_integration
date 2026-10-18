@@ -1,0 +1,6 @@
+/build/
+/install/
+/log/
+/.vscode/browse.vc.db*
+__pycache__/
+*.py[cod]

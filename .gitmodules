@@ -1,0 +1,3 @@
+[submodule "src/odin_ros_driver"]
+	path = src/odin_ros_driver
+	url = https://github.com/manifoldsdk/odin_ros_driver.git

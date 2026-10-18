@@ -3,49 +3,19 @@
     {
       "browse": {
         "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
-        "limitSymbolsToIncludedHeaders": false
+        "limitSymbolsToIncludedHeaders": true
       },
       "includePath": [
-        "/home/soyo/odin_ws/install/odin_ros_driver/include/**",
-        "/home/soyo/sentry_ws/install/universal_controller/include/**",
-        "/home/soyo/sentry_ws/install/sp_msgs/include/**",
-        "/home/soyo/sentry_ws/install/soem/include/**",
-        "/home/soyo/sentry_ws/install/small_gicp_relocalization/include/**",
-        "/home/soyo/sentry_ws/install/sensor_scan_generation/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_cam/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_util/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_projectile_motion/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_gz_cam/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_gz_bridge/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_gz_base/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_base/include/**",
-        "/home/soyo/sentry_ws/install/rmoss_interfaces/include/**",
-        "/home/soyo/sentry_ws/install/pointcloud_to_laserscan/include/**",
-        "/home/soyo/sentry_ws/install/pb_teleop_twist_joy/include/**",
-        "/home/soyo/sentry_ws/install/pb2025_sentry_behavior/include/**",
-        "/home/soyo/sentry_ws/install/behavior/include/**",
-        "/home/soyo/sentry_ws/install/pb_rm_interfaces/include/**",
-        "/home/soyo/sentry_ws/install/pb_omni_pid_pursuit_controller/include/**",
-        "/home/soyo/sentry_ws/install/pb_nav2_plugins/include/**",
-        "/home/soyo/sentry_ws/install/loam_interface/include/**",
-        "/home/soyo/sentry_ws/install/livox_ros_driver2/include/**",
-        "/home/soyo/sentry_ws/install/ign_sim_pointcloud_tool/include/**",
-        "/home/soyo/sentry_ws/install/fake_vel_transform/include/**",
-        "/home/soyo/sentry_ws/install/dji_referee_protocol/include/**",
-        "/home/soyo/sentry_ws/install/chassis_controllers/include/**",
-        "/home/soyo/sentry_ws/install/custom_msgs/include/**",
-        "/home/soyo/sentry_ws/install/behaviortree_ros2/include/**",
-        "/home/soyo/sentry_ws/install/btcpp_ros2_interfaces/include/**",
-        "/home/soyo/sentry_ws/install/auto_aim_interfaces/include/**",
-        "/opt/ros/humble/include/**",
-        "/home/soyo/odin_ws/src/odin_ros_driver/include/**",
-        "/usr/include/**"
+        "${workspaceFolder}/src/odin_ros_driver/include/**",
+        "${workspaceFolder}/install/odin_ros_driver/include/**",
+        "/opt/ros/humble/include/**"
       ],
       "name": "ros2",
       "intelliSenseMode": "gcc-x64",
-      "compilerPath": "/usr/bin/gcc",
+      "compilerPath": "/usr/bin/c++",
       "cStandard": "gnu11",
-      "cppStandard": "c++17"
+      "cppStandard": "c++17",
+      "compileCommands": "${workspaceFolder}/build/odin_ros_driver/compile_commands.json"
     }
   ],
   "version": 4
