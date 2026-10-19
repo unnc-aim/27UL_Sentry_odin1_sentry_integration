@@ -106,7 +106,7 @@ static std::shared_ptr<rawCloudRender> g_renderer = nullptr;
 std::string calib_file_ = "";
 static std::shared_ptr<odin_ros_driver::YamlParser> g_parser = nullptr;
 
-static constexpr size_t PTP_SMOOTH_WINDOW_SIZE = 300;
+static size_t g_ptp_smooth_window_size = 300;
 static std::mutex g_ptp_mutex;
 static std::deque<double> g_ptp_delay_buf;
 static std::deque<double> g_ptp_offset_buf;
@@ -1266,10 +1266,10 @@ static void lidar_data_callback(const lidar_data_t *data, void *user_data)
                         g_ptp_delay_buf.push_back(ptp_data->delay);
                         g_ptp_offset_buf.push_back(ptp_data->offset);
 
-                        if (g_ptp_delay_buf.size() > PTP_SMOOTH_WINDOW_SIZE) {
+                        if (g_ptp_delay_buf.size() > g_ptp_smooth_window_size) {
                             g_ptp_delay_buf.pop_front();
                         }
-                        if (g_ptp_offset_buf.size() > PTP_SMOOTH_WINDOW_SIZE) {
+                        if (g_ptp_offset_buf.size() > g_ptp_smooth_window_size) {
                             g_ptp_offset_buf.pop_front();
                         }
 
@@ -1284,6 +1284,15 @@ static void lidar_data_callback(const lidar_data_t *data, void *user_data)
                         if (!g_ptp_offset_buf.empty()) {
                             g_ptp_offset_smooth.store(offset_sum / static_cast<double>(g_ptp_offset_buf.size()), std::memory_order_relaxed);
                         }
+#ifdef ROS2
+                        // Record clock correction while validating host-aligned navigation stamps.
+                        static rclcpp::Clock sync_log_clock(RCL_STEADY_TIME);
+                        RCLCPP_INFO_THROTTLE(
+                            rclcpp::get_logger("odin_time_sync"), sync_log_clock, 100,
+                            "PTP delay=%.9f smooth_delay=%.9f offset=%.9f smooth_offset=%.9f samples=%zu",
+                            ptp_data->delay, get_ptp_smoothed_delay(), ptp_data->offset,
+                            get_ptp_smoothed_offset(), g_ptp_offset_buf.size());
+#endif
                     }
 
                     // std::cout << std::setprecision(16)
@@ -2495,6 +2504,19 @@ int main(int argc, char *argv[])
     #endif
         std::string config_dir = package_path + "/config";
         std::string config_file = config_dir + "/control_command.yaml";
+        #ifdef ROS2
+            config_file = node->declare_parameter<std::string>("config_file", config_file);
+            const int ptp_window = node->declare_parameter<int>("ptp_smooth_window", 300);
+            if (ptp_window < 1 || ptp_window > 300) {
+                throw std::invalid_argument("ptp_smooth_window requires 1 to 300 samples");
+            }
+            const int spad_filter = node->declare_parameter<int>("spad_filter", -1);
+            if (spad_filter < -1 || spad_filter > 1) {
+                throw std::invalid_argument("spad_filter requires -1, 0 or 1");
+            }
+            g_ptp_smooth_window_size = static_cast<size_t>(ptp_window);
+            RCLCPP_INFO(node->get_logger(), "PTP smoothing window: %zu samples", g_ptp_smooth_window_size);
+        #endif
 
         // Initialize command file path to /tmp/odin_command.txt
         g_command_file_path = "/tmp/odin_command.txt";
@@ -2650,6 +2672,16 @@ int main(int argc, char *argv[])
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
         
+        #ifdef ROS2
+            if (spad_filter >= 0) {
+                if (lidar_enable_spad_filter(spad_filter) != 0) {
+                    RCLCPP_ERROR(node->get_logger(), "SDK SPAD filter configuration failed");
+                    return -1;
+                }
+                RCLCPP_INFO(node->get_logger(), "SDK SPAD filter: %d", spad_filter);
+            }
+        #endif
+
         // Configure SDK IMU smooth sending AFTER lidar_system_init
         // SDK now defaults to disabled, only enable if configured
         if (g_enable_imu_smooth) {
