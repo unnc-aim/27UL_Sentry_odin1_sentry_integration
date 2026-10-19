@@ -1,0 +1,16 @@
+odin_raw_obstacles:
+  ros__parameters:
+    # Device T_IL comes from /odin1/wiwc; poses come from the high-frequency IMU odometry.
+    max_stamp_age: 0.3
+    max_future_stamp: 0.05
+    max_pose_gap: 0.02
+    pose_position_tolerance: 0.05
+    pose_angle_tolerance: 0.05
+    min_confidence: 35
+    max_range: 3.0
+    self_filter_radius: 0.15
+    # Keep the SLAM-specific empirical box out of the raw path.
+    # Require five other points within 4 cm for returns within 1 m of the IMU.
+    near_outlier_range: 1.0
+    near_outlier_radius: 0.04
+    near_outlier_min_neighbors: 5

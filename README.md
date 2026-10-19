@@ -9,10 +9,14 @@
 | 路径 | 用途 | Git 管理方式 |
 | --- | --- | --- |
 | `src/odin_ros_driver/` | 官方驱动与 SDK | 子模块 |
+| `src/odin_sentry_bringup/` | 哨兵导航配置、数据适配与启动入口 | 跟踪 |
+| `src/odin_sentry_bringup/test/` | 当前功能的自动检查，由 CMake 注册运行 | 跟踪 |
 | `.vscode/*.json` | 使用工作区变量的编辑器配置 | 跟踪 |
 | `colcon_defaults.yaml` | ROS 2 构建与编译命令导出设置 | 跟踪 |
-| `build/`、`install/`、`log/` | 编译、安装和构建日志 | 忽略 |
-| `.vscode/browse.vc.db*` | 编辑器索引数据库 | 忽略 |
+| `build/`、`install/`、`log/` | 构建输出、诊断记录与临时测试脚本 | 忽略 |
+| `.vscode/browse.vc*.db*` | 编辑器索引数据库及其锁文件、临时文件 | 忽略 |
+| `maps/odin_<日期时间>/` | 本机导出的地图与续建数据 | 忽略 |
+| `.claude/settings.local.json` | 本机助手设置 | 忽略 |
 
 ## 获取源码和构建
 
@@ -22,7 +26,8 @@
 git submodule update --init --recursive
 ```
 
-以下命令在子 shell 中重新加载 ROS 2 环境，再构建当前工作区：
+以下命令在子 shell 中重新加载 ROS 2 环境，构建官方驱动。
+哨兵导航适配包的完整构建步骤见下方接入说明。
 
 ```bash
 (
@@ -30,7 +35,7 @@ git submodule update --init --recursive
   unset PYTHONPATH LD_LIBRARY_PATH PKG_CONFIG_PATH
   export PATH=/usr/local/bin:/usr/bin:/bin
   source /opt/ros/humble/setup.bash
-  MAKEFLAGS=-j2 colcon build
+  MAKEFLAGS=-j2 colcon build --packages-select odin_ros_driver
 )
 ```
 
@@ -56,3 +61,11 @@ ros2 launch odin_ros_driver odin1_ros2.launch.py
 
 驱动子模块自行忽略 `config/calib.yaml`、`recorddata/`、`log/` 和 `map/`。
 `lib/` 中的 SDK 静态库随官方子模块保留。设备固件和升级工具保存在工作区外。
+
+## 哨兵导航接入
+
+接入程序和实车检查步骤见 [odin_sentry_bringup](src/odin_sentry_bringup/README.md)。
+`cloud_slam` 用于建图和定位；`cloud_raw` 经运动补偿与独立地形处理，供局部和全局实时障碍层使用。
+该包提供 `driver`、`perception`、`localization`、`mapping`、`navigation` 五种运行模式。
+导航侧需要构建 `sentry_ws` 中更新的 `loam_interface`、`sensor_scan_generation` 与 `pb2025_nav_bringup`；运行环境显式加载两个工作区。
+水平安装位置已用实车转动数据复核，默认配置为 `config/mount.yaml`；高度和姿态继续检查。

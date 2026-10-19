@@ -1,0 +1,17 @@
+odin_nav_adapter:
+  ros__parameters:
+    # Remove points within this 3D distance of the Odin odometry IMU origin.
+    # Unit: meter. The sphere follows the sensor; 0.0 disables this filter.
+    # Close external objects inside the sphere are also removed.
+    self_filter_radius: 0.15
+    # Sensor-fixed cluster measured over the 2026-10-19 70-degree yaw sweep.
+    # IMU coordinates: forward, left, up; meters. Remove both bounds to disable the box.
+    # Keep this region specific; objects entering it are also removed.
+    self_filter_box_min: [0.23, 0.10, -0.36]
+    self_filter_box_max: [0.45, 0.41, -0.23]
+    # Remove sparse near-field returns before the terrain cloud stores them.
+    # Require five other points within 4 cm; apply only within 1 m of the IMU.
+    # Set near_outlier_range to 0.0 to disable. Small sparse objects may also be removed.
+    near_outlier_range: 1.0
+    near_outlier_radius: 0.04
+    near_outlier_min_neighbors: 5

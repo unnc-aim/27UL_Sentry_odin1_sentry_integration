@@ -10,5 +10,6 @@
         "${workspaceFolder}/install/odin_ros_driver/local/lib/python3.10/dist-packages",
         "/opt/ros/humble/lib/python3.10/site-packages",
         "/opt/ros/humble/local/lib/python3.10/dist-packages"
-    ]
+    ],
+    "gitConfigUser.selectedProfile": "SHENJLYL"
 }

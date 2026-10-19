@@ -1,0 +1,12 @@
+# Mount relative to gimbal_yaw, at the forward-facing yaw position.
+# The measured point is the front observation plane, 0.430 m above the ground.
+# The current robot model places gimbal_yaw 0.103 m above base_footprint.
+parent_frame: gimbal_yaw
+mount_xyz: [0.130, 0.070, 0.327]
+mount_rpy: [0.0, 0.0, 0.0]
+# Horizontal correction checked with an independent yaw sweep on 2026-10-19.
+# Height and orientation still use the initial installation assumptions.
+mount_to_imu_xyz: [-0.0068, -0.0222, 0.0]
+mount_to_imu_rpy: [0.0, 0.0, 0.0]
+measurement_reference: front_observation_plane
+calibration: horizontal_checked_20261019
