@@ -23,6 +23,7 @@ foreach(target odin_nav_adapter odin_raw_obstacles)
     rclcpp message_filters nav_msgs sensor_msgs tf2 tf2_geometry_msgs tf2_ros)
 endforeach()
 install(TARGETS odin_nav_adapter odin_raw_obstacles DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS scripts/record_route.py DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
@@ -43,6 +44,12 @@ if(BUILD_TESTING)
   add_test(NAME odin_launch_configuration
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_launch.py)
   set_tests_properties(odin_launch_configuration PROPERTIES TIMEOUT 40)
+  set_tests_properties(odin_adapter_pipeline odin_launch_configuration
+    PROPERTIES RESOURCE_LOCK odin_domain_87)
+  add_test(NAME odin_global_localization
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_launch.py --global-search-check)
+  set_tests_properties(odin_global_localization PROPERTIES TIMEOUT 90
+    ENVIRONMENT "PYTHONNOUSERSITE=1;OPENBLAS_NUM_THREADS=1;ROS_DOMAIN_ID=92;ROS_LOCALHOST_ONLY=1")
   add_test(NAME odin_raw_obstacles
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_raw_obstacles.py
       $<TARGET_FILE:odin_raw_obstacles>)
@@ -50,6 +57,14 @@ if(BUILD_TESTING)
   add_test(NAME odin_stationary_mapping
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_stationary_mapping.py)
   set_tests_properties(odin_stationary_mapping PROPERTIES TIMEOUT 25)
+  add_test(NAME odin_route_selection
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_route.py)
+  set_tests_properties(odin_route_selection PROPERTIES TIMEOUT 15
+    ENVIRONMENT "ROS_DOMAIN_ID=86;ROS_LOCALHOST_ONLY=1")
+  add_test(NAME odin_velocity_timeout
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_velocity_timeout.py)
+  set_tests_properties(odin_velocity_timeout PROPERTIES TIMEOUT 25
+    ENVIRONMENT "ROS_DOMAIN_ID=95;ROS_LOCALHOST_ONLY=1")
 endif()
 
 ament_package()

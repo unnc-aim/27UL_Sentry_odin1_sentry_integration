@@ -24,6 +24,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header
+from tf2_msgs.msg import TFMessage
 from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
 
 
@@ -153,14 +154,24 @@ def main():
                 "body": [],
                 "registered": [],
                 "filtered": [],
+                "sensor": [],
             }
             subscriptions = []
+            chassis_tf = []
+            subscriptions.append(node.create_subscription(
+                TFMessage, "/tf",
+                lambda msg: chassis_tf.extend(
+                    tf for tf in msg.transforms
+                    if tf.header.frame_id == "odom" and tf.child_frame_id == "base_footprint"
+                ), 100,
+            ))
             for key, topic, message in (
                 ("adapted", "odin_navigation/odometry", Odometry),
                 ("cloud", "odin_navigation/cloud", PointCloud2),
                 ("body", "odometry", Odometry),
                 ("registered", "registered_scan", PointCloud2),
                 ("filtered", "filtered/cloud", PointCloud2),
+                ("sensor", "sensor_scan", PointCloud2),
             ):
                 subscriptions.append(
                     node.create_subscription(
@@ -327,8 +338,11 @@ def main():
                     + rclpy.duration.Duration(seconds=offset)
                 ).to_msg()
                 assert any(
-                    msg.header.stamp == cloud_stamp for msg in received["body"]
-                ), "Chassis odometry waited for another sensor frame"
+                    msg.header.stamp == expected_stamp for msg in received["body"]
+                ), "Chassis odometry waited for a cloud or changed the pose measurement time"
+                assert any(
+                    msg.header.stamp == cloud_stamp for msg in received["sensor"]
+                ), "Sensor scan changed the cloud measurement time"
             run_for(1.0, theta=1.0)
             body = received["body"][-1]
             assert body.child_frame_id == "gimbal_yaw"
@@ -371,6 +385,21 @@ def main():
             run_for(0.08, theta=1.0, age=1.0, publish_tf=False)
             run_for(0.5, theta=1.0)
             assert received["adapted"][-1].header.stamp != before_delayed
+            # Startup contention can briefly age every pair beyond 0.3 s.
+            run_for(0.15, theta=1.0, age=0.4, publish_tf=False)
+            before_pause = received["adapted"][-1].header.stamp
+            run_for(0.65, theta=1.0, age=0.4, publish_tf=False)
+            assert received["adapted"][-1].header.stamp == before_pause
+            for index in range(3):
+                stamp = publish(theta=1.0)
+                until = time.monotonic() + 0.08
+                while time.monotonic() < until:
+                    rclpy.spin_once(node, timeout_sec=0.005)
+                if index < 2:
+                    assert received["adapted"][-1].header.stamp == before_pause
+                else:
+                    assert received["adapted"][-1].header.stamp == stamp
+            run_for(0.2, theta=1.0)
             last_stamp = received["adapted"][-1].header.stamp
             run_for(0.8, theta=1.0, jump=2.0)
             run_for(0.8, theta=1.0)
@@ -384,7 +413,7 @@ def main():
             )
             run_for(1.5, theta=1.0)
             assert received["adapted"][-1].header.stamp != last_stamp
-            end = time.monotonic() + 0.8
+            end = time.monotonic() + 2.2
             while time.monotonic() < end:
                 rclpy.spin_once(node, timeout_sec=0.02)
             last_stamp = received["adapted"][-1].header.stamp
@@ -428,8 +457,100 @@ def main():
             assert received["filtered"][-1].width == 0
             run_for(0.2, theta=1.0, points=dense)
             assert received["filtered"][-1].width == len(dense)
+
+            processes[3].send_signal(signal.SIGINT)
+            processes[3].wait(timeout=5)
+            processes[3] = subprocess.Popen(
+                filtered_command + ["-p", "near_outlier_min_neighbors:=20",
+                                    "-p", "near_outlier_range:=3.0",
+                                    "-p", "near_outlier_scale_by_range:=true"],
+                stdout=logs[3], stderr=subprocess.STDOUT,
+            )
+            cluster = [[.4 + x*.003, -.3 + y*.003, .1 + z*.003]
+                       for x in range(3) for y in range(3) for z in range(4)]
+            run_for(1.0, theta=1.0, points=cluster)
+            assert received["filtered"][-1].width == 0, "Sparse close cluster remained"
+            farther = [[x+.4, y, z] for x, y, z in cluster]
+            run_for(.3, theta=.5, points=farther)
+            assert received["filtered"][-1].width == len(farther), "Range scaling lost distant support"
+            solid = [[.4 + x*.003, -.3 + y*.003, .1 + z*.003]
+                     for x in range(5) for y in range(5) for z in range(5)]
+            run_for(.3, theta=1.0, points=solid)
+            assert received["filtered"][-1].width == len(solid), "Dense close object was removed"
+
+            distant_support = [[1.8 + x*.005, -.3 + y*.005, .1 + z*.005]
+                               for x in range(2) for y in range(2) for z in range(2)]
+            beyond_cutoff = [3.4, 0.0, 0.0]
+            isolated_far = [1.4, .5, .1]
+            for theta in (.5, 1.0):
+                run_for(.3, theta=theta,
+                        points=distant_support + [isolated_far, beyond_cutoff])
+                points = list(point_cloud2.read_points(
+                    received["filtered"][-1], field_names=("x", "y", "z")))
+                expected = world_points(distant_support + [beyond_cutoff], theta)
+                assert len(points) == len(expected), "Extended range lost support or kept an isolated return"
+                assert all(abs(float(v) - e) < 1e-5
+                           for p, q in zip(points, expected)
+                           for v, e in zip(p, q[:3])), "Extended range changed world coordinates"
+
+            # A slow cloud stream must not hold back fresh lidar odometry.
+            # The upstream adapter is already paused by the timeout case above.
+            lidar_pub = node.create_publisher(Odometry, "lidar_odometry", 5)
+            until = time.monotonic() + 3.0
+            while lidar_pub.get_subscription_count() == 0:
+                assert time.monotonic() < until, "Lidar odometry discovery timed out"
+                rclpy.spin_once(node, timeout_sec=0.01)
+            stamps = []
+            for _ in range(12):
+                now = node.get_clock().now()
+                tf = TransformStamped()
+                tf.header = Header(stamp=now.to_msg(), frame_id="base_footprint")
+                tf.child_frame_id = "gimbal_yaw"
+                tf.transform.translation.z = 0.103
+                tf.transform.rotation.w = 1.0
+                dynamic.sendTransform(tf)
+                pose = Odometry()
+                pose.header = Header(
+                    stamp=(now - rclpy.duration.Duration(seconds=0.02)).to_msg(),
+                    frame_id="odom",
+                )
+                pose.child_frame_id = "odin_imu"
+                pose.pose.pose.position.x = 0.13
+                pose.pose.pose.position.y = 0.07
+                pose.pose.pose.position.z = 0.43
+                pose.pose.pose.orientation.w = 1.0
+                stamps.append(pose.header.stamp)
+                lidar_pub.publish(pose)
+                until = time.monotonic() + 0.06
+                while time.monotonic() < until:
+                    rclpy.spin_once(node, timeout_sec=0.005)
+            delivered = sum(
+                any(msg.header.stamp == stamp for msg in received["body"])
+                for stamp in stamps
+            )
+            assert delivered >= 10, (
+                f"Fresh odometry waited for clouds: received {delivered}/12"
+            )
+            assert any(
+                tf.header.stamp == stamps[-1] for tf in chassis_tf
+            ), "Chassis TF waited for clouds"
+            before = len(received["body"])
+            pose.header.stamp = (
+                node.get_clock().now() - rclpy.duration.Duration(seconds=2)
+            ).to_msg()
+            lidar_pub.publish(pose)
+            until = time.monotonic() + 0.15
+            while time.monotonic() < until:
+                rclpy.spin_once(node, timeout_sec=0.005)
+            assert len(received["body"]) == before, "Old lidar pose reached chassis odometry"
+            pose.header.stamp = node.get_clock().now().to_msg()
+            lidar_pub.publish(pose)
+            until = time.monotonic() + 0.15
+            while time.monotonic() < until:
+                rclpy.spin_once(node, timeout_sec=0.005)
+            assert len(received["body"]) == before, "Missing mounting TF produced a chassis pose"
             print(
-                "PASS: clock filtering, first pose, XYZI, rotating mount, stationary chassis, body filtering, near outliers and discontinuity stop"
+                "PASS: transforms, point filtering, continuity checks, odometry without clouds, original timestamps and missing-TF handling"
             )
             node.destroy_node()
             rclpy.shutdown()

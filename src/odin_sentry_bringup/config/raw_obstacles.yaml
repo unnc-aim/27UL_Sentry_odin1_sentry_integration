@@ -10,7 +10,10 @@ odin_raw_obstacles:
     max_range: 3.0
     self_filter_radius: 0.15
     # Keep the SLAM-specific empirical box out of the raw path.
-    # Require five other points within 4 cm for returns within 1 m of the IMU.
-    near_outlier_range: 1.0
+    # Use 20 other points at 1 m, increasing as 20 / range^2 closer to the IMU.
+    # Check the full raw obstacle range; the reference remains one meter.
+    # Range is the 3D distance in meters; the neighborhood remains 4 cm.
+    near_outlier_range: 3.0
     near_outlier_radius: 0.04
-    near_outlier_min_neighbors: 5
+    near_outlier_min_neighbors: 20
+    near_outlier_scale_by_range: true

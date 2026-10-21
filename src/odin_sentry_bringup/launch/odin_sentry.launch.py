@@ -112,11 +112,17 @@ def navigation_parameters(source, linear_limit, angular_limit, raw_parameters=No
         base_frame="base_footprint",
         robot_base_frame="gimbal_yaw",
         sync_min_interval=0.01,
+        sync_max_interval=0.05,
+        tf_timeout=0.05,
+        max_input_age=0.3,
     )
     for costmap, source_name in (
         ("local_costmap", "terrain_map"),
         ("global_costmap", "terrain_map_ext"),
     ):
+        params[costmap][costmap]["ros__parameters"]["inflation_layer"]["inflation_radius"] = (
+            0.4 if costmap == "local_costmap" else 0.35
+        )
         layer = params[costmap][costmap]["ros__parameters"][
             "intensity_voxel_layer"
         ]
@@ -143,6 +149,55 @@ def navigation_parameters(source, linear_limit, angular_limit, raw_parameters=No
     smoother["min_velocity"] = [
         max(v, -limit) for v, limit in zip(smoother["min_velocity"], limits)
     ]
+    # Finish a goal after both position and measured translation have settled.
+    params["controller_server"]["ros__parameters"]["general_goal_checker"].update(
+        plugin="nav2_controller::StoppedGoalChecker",
+        stateful=False,
+        xy_goal_tolerance=0.1,
+        trans_stopped_velocity=0.1,
+        # Competition spin and gimbal scanning continue at the destination.
+        rot_stopped_velocity=10.0,
+    )
+    smoother["max_decel"][:2] = [-2.0, -2.0]
+    deceleration = min(-float(v) for v in smoother["max_decel"][:2])
+    if not math.isfinite(deceleration) or deceleration <= 0:
+        raise ValueError("Planar max_decel must contain finite negative accelerations")
+    speed = controller["v_linear_max"]
+    stopping_distance = speed * speed / (2 * deceleration) + speed * 0.3 + 0.1
+    local_map = params["local_costmap"]["local_costmap"]["ros__parameters"]
+    footprint = local_map.get("footprint", [])
+    if isinstance(footprint, str):
+        footprint = yaml.safe_load(footprint) or []
+    radius = max(math.hypot(*point) for point in footprint) if footprint else float(local_map.get("robot_radius", 0.2))
+    radius += float(local_map.get("footprint_padding", 0.01))
+    if not math.isfinite(radius) or radius <= 0:
+        raise ValueError("A finite positive robot footprint is required for obstacle braking")
+    # Keep the robot's swept footprint inside the map throughout the braking range.
+    minimum_size = math.ceil(2 * (stopping_distance + radius + 2 * local_map["resolution"]))
+    for dimension in ("width", "height"):
+        local_map[dimension] = max(local_map[dimension], minimum_size)
+    visible_distance = min(local_map["width"], local_map["height"]) / 2 - 2 * local_map["resolution"]
+    controller.update(
+        obstacle_slowdown_distance=min(visible_distance, raw_range),
+        obstacle_stop_margin=0.1,
+        obstacle_deceleration=deceleration,
+        obstacle_reaction_time=0.3,
+        max_lateral_accel=min(float(value) for value in smoother["max_accel"][:2]),
+    )
+    controller["approach_velocity_scaling_dist"] = max(
+        controller["approach_velocity_scaling_dist"], min(stopping_distance, visible_distance)
+    )
+    # The controller commands zero translation inside the goal position tolerance.
+    controller["min_approach_linear_velocity"] = 0.15
+    # PB's curve factor recovers gradually after replanning onto a straight path.
+    controller["max_velocity_scaling_factor_rate"] = 0.9
+    # Retain approach commands in either planar direction.
+    smoother["deadband_velocity"][:2] = [0.02, 0.02]
+    # A costmap wait pauses controller output. Start braking after three missed
+    # 20 Hz commands instead of carrying the last velocity for a full second.
+    smoother["velocity_timeout"] = 0.15
+    # Apply one acceleration scale to X/Y so diagonal commands retain direction.
+    smoother["scale_velocities"] = True
     behaviors = params["behavior_server"]["ros__parameters"]
     behaviors["max_rotational_vel"] = min(
         behaviors.get("max_rotational_vel", angular_limit), angular_limit
@@ -151,6 +206,13 @@ def navigation_parameters(source, linear_limit, angular_limit, raw_parameters=No
         behaviors.get("min_rotational_vel", angular_limit), angular_limit
     )
     params["fake_vel_transform"]["ros__parameters"]["init_spin_speed"] = 0.0
+    params["fake_vel_transform"]["ros__parameters"]["remote_spin_topic"] = (
+        "/universal_controller/remote_spin"
+    )
+    params["fake_vel_transform"]["ros__parameters"].setdefault(
+        "gimbal_imu_topic", "/ecat/sn4653115/app2/read"
+    )
+    params["fake_vel_transform"]["ros__parameters"].setdefault("max_imu_age", 0.05)
     # slam_toolbox owns map/odom when external odometry is selected.
     # Gimbal sweeps change the view while base_footprint stays stationary.
     # Accept new views by time, with at most five mapping scans per second.
@@ -168,7 +230,12 @@ def navigation_parameters(source, linear_limit, angular_limit, raw_parameters=No
     params.setdefault("small_gicp_relocalization", {}).setdefault(
         "ros__parameters", {}
     )["lidar_frame"] = "odin_imu"
-    params["amcl"]["ros__parameters"]["max_beams"] = 720
+    # Odin supplies SLAM odometry. Chassis spin alone should add only a small
+    # pose uncertainty; the previous settings dispersed particles
+    # even while the gimbal held its view on the same walls.
+    params["amcl"]["ros__parameters"].update(
+        max_beams=720, alpha1=0.0001, alpha4=0.0001
+    )
     return params
 
 
@@ -247,6 +314,7 @@ def launch_setup(context):
                         "max_future_stamp",
                         "max_pair_dt",
                         "input_timeout",
+                        "recovery_timeout",
                         "max_translation_step",
                         "max_rotation_step",
                     )
@@ -381,8 +449,13 @@ def launch_setup(context):
                 Node(
                     package="pb2025_nav_bringup",
                     executable="amcl_initializer.py",
-                    arguments=["--globalize", "--seconds", "120"],
+                    arguments=[
+                        "--globalize",
+                        "--method", value("localization_method"),
+                        "--seconds", "60",
+                    ],
                     parameters=[{"use_sim_time": False}],
+                    additional_env={"PYTHONNOUSERSITE": "1", "OPENBLAS_NUM_THREADS": "1"},
                     output="screen",
                 )
             )
@@ -403,6 +476,7 @@ def launch_setup(context):
                     "use_rviz": value("use_rviz"),
                     "use_composition": "False",
                     "auto_global_localization": "True",
+                    "localization_method": value("localization_method"),
                     "use_sim_time": "False",
                 }.items(),
             )
@@ -424,12 +498,14 @@ def generate_launch_description():
         "raw_obstacles_file": str(share / "config/raw_obstacles.yaml"),
         "params_file": "",
         "map": "",
+        "localization_method": "scan_match",
         "linear_speed_limit": "0.3",
         "angular_speed_limit": "0.5",
         "max_stamp_age": "0.3",
         "max_future_stamp": "0.05",
         "max_pair_dt": "0.05",
         "input_timeout": "0.5",
+        "recovery_timeout": "2.0",
         "max_translation_step": "1.0",
         "max_rotation_step": "1.5",
     }

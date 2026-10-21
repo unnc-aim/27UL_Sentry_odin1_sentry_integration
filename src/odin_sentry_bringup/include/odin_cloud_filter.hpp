@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -41,6 +42,7 @@ public:
     const double near_range = node.declare_parameter("near_outlier_range", 0.0);
     near_outlier_radius_ = node.declare_parameter("near_outlier_radius", 0.04);
     const auto neighbors = node.declare_parameter<int64_t>("near_outlier_min_neighbors", 5);
+    near_outlier_scale_by_range_ = node.declare_parameter("near_outlier_scale_by_range", false);
     if (
       !std::isfinite(near_range) || near_range < 0.0 || !std::isfinite(near_outlier_radius_) ||
       near_outlier_radius_ <= 0.0 || neighbors < 1 || neighbors > 1000) {
@@ -81,13 +83,20 @@ public:
     for (size_t i = 0; i < points->size(); ++i) {
       const auto & p = (*points)[i];
       const auto relative = tf2::Vector3(p.x, p.y, p.z) - origin;
-      // Include the query point in the search count; all other points provide support.
-      if (
-        relative.length2() < near_outlier_range_squared_ &&
-        tree.radiusSearch(
-          p, near_outlier_radius_, indices, distances, near_outlier_min_neighbors_ + 1) <
-          near_outlier_min_neighbors_ + 1) {
-        continue;
+      const double distance_squared = relative.length2();
+      if (distance_squared < near_outlier_range_squared_) {
+        int neighbors = near_outlier_min_neighbors_;
+        if (near_outlier_scale_by_range_) {
+          // Normalize support to one meter; the cutoff only selects the checked area.
+          neighbors = static_cast<int>(std::min(
+            static_cast<double>(points->size()),
+            std::ceil(neighbors / std::max(distance_squared, 1e-12))));
+        }
+        // Include the query point; every other point provides support.
+        if (tree.radiusSearch(p, near_outlier_radius_, indices, distances, neighbors + 1) <
+          neighbors + 1) {
+          continue;
+        }
       }
       if (kept != i) {
         std::memmove(
@@ -104,4 +113,5 @@ private:
   std::vector<double> self_filter_box_min_, self_filter_box_max_;
   double near_outlier_range_squared_, near_outlier_radius_;
   int near_outlier_min_neighbors_;
+  bool near_outlier_scale_by_range_;
 };

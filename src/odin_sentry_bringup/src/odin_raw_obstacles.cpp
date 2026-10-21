@@ -6,6 +6,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <vector>
 
@@ -71,7 +72,9 @@ public:
       Policy(20), device_sub_, aligned_sub_);
     sync_->registerCallback(std::bind(
       &OdinRawObstacles::receiveAlignment, this, std::placeholders::_1, std::placeholders::_2));
-    timer_ = create_wall_timer(std::chrono::milliseconds(5), [this]() { process(); });
+    processing_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    timer_ = create_wall_timer(
+      std::chrono::milliseconds(5), [this]() { process(); }, processing_group_);
   }
 
 private:
@@ -124,6 +127,7 @@ private:
 
   void receivePose(const Odom & msg)
   {
+    std::lock_guard<std::mutex> lock(input_mutex_);
     if (faulted_) {
       return;
     }
@@ -184,6 +188,7 @@ private:
   void receiveAlignment(
     const Odom::ConstSharedPtr & device_msg, const Odom::ConstSharedPtr & aligned_msg)
   {
+    std::lock_guard<std::mutex> lock(input_mutex_);
     const auto & device = *device_msg;
     const auto & aligned = *aligned_msg;
     tf2::Transform d, a;
@@ -206,6 +211,7 @@ private:
 
   void receiveExtrinsic(const Odom & msg)
   {
+    std::lock_guard<std::mutex> lock(input_mutex_);
     if (faulted_) {
       return;
     }
@@ -283,6 +289,7 @@ private:
 
   void receiveCloud(const Cloud & msg)
   {
+    std::lock_guard<std::mutex> lock(input_mutex_);
     const int64_t start = rclcpp::Time(msg.header.stamp).nanoseconds();
     if (
       faulted_ || !fresh(start) || msg.header.frame_id != "lidar" || msg.is_bigendian ||
@@ -347,14 +354,14 @@ private:
     }
     last_start_ = start;
     frames_.push_back(std::move(frame));
-    while (frames_.size() > 3) {
+    while (frames_.size() > 1) {
       frames_.pop_front();
     }
-    process();
   }
 
   void process()
   {
+    std::unique_lock<std::mutex> lock(input_mutex_);
     if (faulted_) {
       return;
     }
@@ -374,13 +381,13 @@ private:
         "Waiting for calibration, aligned SLAM pose and consistent high-frequency pose");
       return;
     }
-    auto & frame = frames_.front();
+    auto & pending = frames_.front();
     tf2::Transform end_pose;
-    if (!interpolate(frame.end, end_pose)) {
+    if (!interpolate(pending.end, end_pose)) {
       return;
     }
-    for (auto & group : frame.groups) {
-      const auto time = frame.start + static_cast<int64_t>(std::llround(group.first * 1e9));
+    for (auto & group : pending.groups) {
+      const auto time = pending.start + static_cast<int64_t>(std::llround(group.first * 1e9));
       tf2::Transform device_pose;
       if (!interpolate(time, device_pose)) {
         return;
@@ -391,6 +398,8 @@ private:
       }
       group.second = alignment_ * device_pose * extrinsic;
     }
+    auto frame = std::move(pending);
+    frames_.pop_front();
     Cloud output;
     output.header.stamp = rclcpp::Time(frame.end);
     output.header.frame_id = "odom";
@@ -425,14 +434,20 @@ private:
     modifier.resize(count);
     output.is_dense = true;
     const auto aligned = alignment_ * end_pose;
+    tf2::Transform end_extrinsic;
+    if (!extrinsicAt(frame.end, end_extrinsic)) {
+      return;
+    }
+    // Density filtering can take most of a sensor period. Keep pose and SLAM
+    // reference callbacks running so their queues and timestamps stay current.
+    lock.unlock();
     filter_->apply(output, aligned.getOrigin());
-    if (fresh(frame.start) && fresh(reference_.time)) {
+    lock.lock();
+    if (!faulted_ && fresh(frame.start) && fresh(reference_.time)) {
       Odom odom;
       odom.header = output.header;
       odom.child_frame_id = "odin_imu";
       tf2::toMsg(aligned, odom.pose.pose);
-      tf2::Transform end_extrinsic;
-      extrinsicAt(frame.end, end_extrinsic);
       geometry_msgs::msg::TransformStamped tf;
       tf.header.stamp = output.header.stamp;
       tf.header.frame_id = "odin_imu";
@@ -448,9 +463,10 @@ private:
         published_ = true;
       }
     }
-    frames_.pop_front();
   }
 
+  std::mutex input_mutex_;
+  rclcpp::CallbackGroup::SharedPtr processing_group_;
   double max_age_, max_future_, max_gap_, max_range_, position_tolerance_, angle_tolerance_;
   int confidence_;
   bool faulted_{false}, have_alignment_{false}, published_{false};
@@ -473,7 +489,10 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<OdinRawObstacles>());
+  auto node = std::make_shared<OdinRawObstacles>();
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }

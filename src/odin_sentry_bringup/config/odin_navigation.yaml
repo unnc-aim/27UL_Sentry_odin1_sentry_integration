@@ -3,8 +3,9 @@ register_keys:
   strict_usb3.0_check: 0
   use_host_ros_time: 2
   streamctrl: 1
-  sendrgbcompressed: 1
-  sendrgb: 1
+  sendrgbcompressed: 0
+  # Navigation consumes point clouds and poses; leave host camera images disabled.
+  sendrgb: 0
   sendrgbundistort: 0
   sendimu: 1
   enable_imu_smooth: 0
@@ -18,7 +19,7 @@ register_keys:
   rgb_format: 1
   rgb_width: 1600
   rgb_height: 1296
-  rgb_fps: 100
+  rgb_fps: 100  # Units are 0.1 fps: 100 selects 10 fps when images are enabled.
   sendcloudslam: 1
   sendcloudrender: 0
   senddepth: 0

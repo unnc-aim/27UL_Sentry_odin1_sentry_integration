@@ -31,14 +31,18 @@ public:
     max_future_ = declare_parameter("max_future_stamp", 0.05);
     max_pair_dt_ = declare_parameter("max_pair_dt", 0.05);
     timeout_ = declare_parameter("input_timeout", 0.5);
+    recovery_timeout_ = declare_parameter("recovery_timeout", 2.0);
     max_translation_step_ = declare_parameter("max_translation_step", 1.0);
     max_rotation_step_ = declare_parameter("max_rotation_step", 1.5);
     for (double value :
-         {max_age_, max_future_, max_pair_dt_, timeout_, max_translation_step_,
+         {max_age_, max_future_, max_pair_dt_, timeout_, recovery_timeout_, max_translation_step_,
           max_rotation_step_}) {
       if (!std::isfinite(value) || value <= 0.0) {
         throw std::invalid_argument("Input limits must be finite and positive");
       }
+    }
+    if (recovery_timeout_ <= timeout_) {
+      throw std::invalid_argument("Recovery timeout must exceed input timeout");
     }
     base_frame_ = declare_parameter("base_frame", "base_footprint");
     lidar_frame_ = declare_parameter("lidar_frame", "odin_imu");
@@ -62,10 +66,13 @@ public:
     sync_->registerCallback(
       std::bind(&OdinNavAdapter::process, this, std::placeholders::_1, std::placeholders::_2));
     timer_ = create_wall_timer(std::chrono::milliseconds(100), [this]() {
-      if (
-        initialized_ && !faulted_ &&
-        std::chrono::duration<double>(Clock::now() - last_receive_).count() > timeout_) {
-        stop("Synchronized input expired");
+      if (initialized_ && !faulted_) {
+        const double elapsed = std::chrono::duration<double>(Clock::now() - last_receive_).count();
+        if (elapsed > recovery_timeout_) {
+          stop("Synchronized input recovery expired");
+        } else if (elapsed > timeout_) {
+          pause();
+        }
       }
     });
   }
@@ -74,6 +81,15 @@ private:
   using Clock = std::chrono::steady_clock;
   using SyncPolicy = message_filters::sync_policies::ApproximateTime<
     nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2>;
+
+  void pause()
+  {
+    if (!paused_) {
+      RCLCPP_WARN(get_logger(), "Synchronized input paused; waiting for three fresh continuous pairs");
+    }
+    paused_ = true;
+    recovery_samples_ = 0;
+  }
 
   void stop(const char * reason)
   {
@@ -120,7 +136,7 @@ private:
       return;
     }
     if (!validStamp(odometry->header.stamp) || !validStamp(cloud->header.stamp)) {
-      // A delayed pair leaves the last valid sample intact. The watchdog handles sustained loss.
+      recovery_samples_ = 0;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 3000,
         "Waiting for fresh Odin timestamps (odom %.3fs, cloud %.3fs)",
@@ -129,6 +145,7 @@ private:
       return;
     }
     if (cloud->width == 0) {
+      recovery_samples_ = 0;
       return;
     }
     const auto & p = odometry->pose.pose.position;
@@ -159,14 +176,19 @@ private:
       const double dt = (stamp - last_stamp_).seconds();
       const double cloud_dt = (cloud_stamp - last_cloud_stamp_).seconds();
       if (
-        dt < 0.0 || cloud_dt < 0.0 || dt > timeout_ || cloud_dt > timeout_ ||
+        dt < 0.0 || cloud_dt < 0.0 || dt > recovery_timeout_ || cloud_dt > recovery_timeout_ ||
         (pose.getOrigin() - previous_pose_.getOrigin()).length() > max_translation_step_ ||
         pose.getRotation().angleShortestPath(previous_pose_.getRotation()) > max_rotation_step_) {
         stop("Odometry continuity changed");
         return;
       }
       if (dt == 0.0 || cloud_dt == 0.0) {
+        recovery_samples_ = 0;
         return;
+      }
+      if (dt > timeout_ || cloud_dt > timeout_ ||
+          std::chrono::duration<double>(Clock::now() - last_receive_).count() > timeout_) {
+        pause();
       }
     }
 
@@ -208,6 +230,7 @@ private:
     out_cloud.is_dense = true;
     cloud_filter_->apply(out_cloud, pose.getOrigin());
     if (!validStamp(odometry->header.stamp) || !validStamp(cloud->header.stamp)) {
+      recovery_samples_ = 0;
       return;
     }
     // An all-body frame still carries a valid pose and an empty filtered cloud.
@@ -226,6 +249,13 @@ private:
     last_stamp_ = stamp;
     last_cloud_stamp_ = cloud_stamp;
     last_receive_ = Clock::now();
+    if (paused_) {
+      if (++recovery_samples_ < 3) {
+        return;
+      }
+      paused_ = false;
+      RCLCPP_INFO(get_logger(), "Synchronized input recovered after three fresh continuous pairs");
+    }
     odometry_pub_->publish(out_odometry);
     cloud_pub_->publish(out_cloud);
   }
@@ -263,7 +293,8 @@ private:
     }
   }
 
-  double max_age_, max_future_, max_pair_dt_, timeout_, max_translation_step_, max_rotation_step_;
+  double max_age_, max_future_, max_pair_dt_, timeout_, recovery_timeout_;
+  double max_translation_step_, max_rotation_step_;
   std::string base_frame_, lidar_frame_;
   std::unique_ptr<OdinCloudFilter> cloud_filter_;
   bool anchor_published_{false};
@@ -272,6 +303,8 @@ private:
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
   bool initialized_{false};
   bool faulted_{false};
+  bool paused_{false};
+  unsigned recovery_samples_{0};
   tf2::Transform previous_pose_;
   rclcpp::Time last_stamp_{0, 0, RCL_ROS_TIME}, last_cloud_stamp_{0, 0, RCL_ROS_TIME};
   Clock::time_point last_receive_;
