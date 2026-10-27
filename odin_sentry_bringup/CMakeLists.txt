@@ -24,22 +24,14 @@ foreach(target odin_nav_adapter odin_raw_obstacles)
 endforeach()
 install(TARGETS odin_nav_adapter odin_raw_obstacles DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/record_route.py DESTINATION lib/${PROJECT_NAME})
-install(PROGRAMS scripts/window_calibration.py scripts/preview_window_calibration.py
-  scripts/capture_window_calibration.py DESTINATION lib/${PROJECT_NAME})
-install(FILES scripts/window_calibration_core.py DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME}
+  PATTERN "window_calibration.yaml" EXCLUDE
+  PATTERN "window_preview.rviz" EXCLUDE)
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
-install(FILES WINDOW_CALIBRATION.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   enable_testing()
-  add_test(NAME odin_window_core
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_window_calibration.py)
-  add_test(NAME odin_window_preview
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_window_calibration.py --ros)
-  set_tests_properties(odin_window_core odin_window_preview PROPERTIES TIMEOUT 20
-    ENVIRONMENT "PYTHONNOUSERSITE=1;OPENBLAS_NUM_THREADS=1;PYTHONDONTWRITEBYTECODE=1;ROS_DOMAIN_ID=131;ROS_LOCALHOST_ONLY=1")
   find_package(nav2_costmap_2d REQUIRED)
   add_executable(test_raw_costmap test/test_raw_costmap.cpp)
   target_compile_features(test_raw_costmap PUBLIC cxx_std_17)

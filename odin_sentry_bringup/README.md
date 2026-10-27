@@ -1,6 +1,6 @@
 # 工作空间整合说明
 
-当前源码位于 `sentry_ws/src/odin_navigation/odin_sentry_bringup`，统一加载 `sentry_ws/install/setup.bash`。正式原生三维操作见 [USAGE](../odin_3d_test/USAGE.md)。下文旧工作空间路径用于保留早期二维适配记录。
+当前源码位于 `sentry_ws/src/odin_integration/odin_sentry_bringup`，统一加载 `sentry_ws/install/setup.bash`。正式原生三维操作见 [USAGE](../odin_3d_test/USAGE.md)。下文旧工作空间路径用于保留早期二维适配记录。
 
 # Odin 哨兵导航接入
 

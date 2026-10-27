@@ -93,8 +93,8 @@ leggedrobotics/traversability_estimation 可参考坡度、台阶与粗糙度算
 
 | 来源 | 已有内容 | 本轮用途 |
 |---|---|---|
-| `odin_navigation/odin_ros_driver` | 官方接口、彩色点云、里程计、原生地图保存 | 作为依赖使用 |
-| `odin_navigation/odin_sentry_bringup` | 云台外参、raw 运动补偿、近点过滤、双路感知 | 复用消息和过滤节点 |
+| `odin_integration/odin_ros_driver` | 官方接口、彩色点云、里程计、原生地图保存 | 作为依赖使用 |
+| `odin_integration/odin_sentry_bringup` | 云台外参、raw 运动补偿、近点过滤、双路感知 | 复用消息和过滤节点 |
 | `sentry_ws/src/pb2025_sentry_nav` | Nav2、地形处理、速度转换、路径控制器 | 保留规划控制接口 |
 | `sentry_ws/src/behavior` | 等待定位扫描、六点比赛路线、裁判流程 | 保留比赛状态流程 |
 | `odin_lab_ws`、`odin_lab` | 原生定位实验、TF 转换、地图与测试资料 | 提取定位经验和离线测试数据 |

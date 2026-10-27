@@ -8,3 +8,14 @@ __pycache__/
 *.db3
 *.mcap
 *.bag
+
+# Retained local history and protection-window experiments.
+/legacy/
+/odin_sentry_bringup/WINDOW_CALIBRATION.md
+/odin_sentry_bringup/config/window_calibration.yaml
+/odin_sentry_bringup/config/window_preview.rviz
+/odin_sentry_bringup/scripts/window_calibration.py
+/odin_sentry_bringup/scripts/window_calibration_core.py
+/odin_sentry_bringup/scripts/capture_window_calibration.py
+/odin_sentry_bringup/scripts/preview_window_calibration.py
+/odin_sentry_bringup/test/test_window_calibration.py

@@ -1,5 +1,0 @@
-build:
-  symlink-install: true
-  cmake-args:
-    - -DBUILD_SYSTEM=ROS2
-    - -DCMAKE_EXPORT_COMPILE_COMMANDS=ON

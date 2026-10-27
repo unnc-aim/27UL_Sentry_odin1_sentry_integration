@@ -1,4 +1,4 @@
-# Odin navigation
+# Odin Sentry integration
 
 本仓库统一管理三个 ROS 2 包，保留原包名与节点接口：
 
