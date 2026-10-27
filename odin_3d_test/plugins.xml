@@ -1,0 +1,4 @@
+<library path="surface_layer">
+<class name="odin_3d_test::SurfaceLayer" type="odin_3d_test::SurfaceLayer" base_class_type="nav2_costmap_2d::Layer">
+<description>Ground support, slope and overhead clearance costs.</description>
+</class></library>

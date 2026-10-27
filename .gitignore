@@ -1,18 +1,10 @@
-# Colcon output.
-/build/
-/install/
-
-# Local diagnostic scripts, replay experiments, captures, and test results.
-/log/
-/image/
-/maps/odin_[0-9]*/
-
-# VS Code C/C++ indexing files, including numbered databases.
-/.vscode/browse.vc*.db*
-
-# Machine-local assistant settings.
-/.claude/settings.local.json
-
-# Python bytecode.
+build/
+install/
+log/
+logs/
 __pycache__/
 *.py[cod]
+.vscode/
+*.db3
+*.mcap
+*.bag

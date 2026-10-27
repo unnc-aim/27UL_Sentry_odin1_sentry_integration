@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>odin_3d_test</name><version>0.1.0</version>
+  <description>Native Odin localization and ground-supported navigation for Sentry.</description>
+  <maintainer email="shenjiyi2@gmail.com">SHENJLYL</maintainer><license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend><depend>message_filters</depend><depend>rclpy</depend><depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend><depend>geometry_msgs</depend><depend>std_msgs</depend><depend>example_interfaces</depend><depend>tf2_ros</depend>
+  <depend>tf2_msgs</depend><depend>tf2_geometry_msgs</depend><depend>pcl_conversions</depend>
+  <depend>nav2_costmap_2d</depend><depend>pluginlib</depend><depend>action_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend><exec_depend>python3-scipy</exec_depend><exec_depend>python3-yaml</exec_depend>
+  <exec_depend>odin_sentry_bringup</exec_depend><exec_depend>odin_ros_driver</exec_depend>
+  <exec_depend>pb2025_nav_bringup</exec_depend>
+  <exec_depend>launch_ros</exec_depend><exec_depend>ament_index_python</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend><exec_depend>rcl_interfaces</exec_depend>
+  <test_depend>nav2_core</test_depend><test_depend>nav2_theta_star_planner</test_depend>
+  <test_depend>pb_nav2_plugins</test_depend>
+  <test_depend>fastrtps</test_depend><test_depend>rmw_fastrtps_shared_cpp</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -1,0 +1,130 @@
+Panels:
+- Class: rviz_common/Displays
+  Name: Displays
+- Class: rviz_common/Tool Properties
+  Name: Tool Properties
+- Class: nav2_rviz_plugins/Navigation 2
+  Name: Navigation 2
+Visualization Manager:
+  Class: ''
+  Global Options:
+    Fixed Frame: map
+    Frame Rate: 15
+  Displays:
+  - Class: rviz_default_plugins/Grid
+    Name: Ground Grid
+    Enabled: true
+  - Class: rviz_default_plugins/Map
+    Name: Navigation Map
+    Enabled: true
+    Topic:
+      Value: /map
+      Durability Policy: Transient Local
+  - Class: rviz_default_plugins/Path
+    Name: Global Path
+    Enabled: true
+    Topic:
+      Value: /plan
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+      Depth: 1
+    Color: 0; 120; 255
+    Alpha: 1
+    Line Style: Billboards
+    Line Width: 0.04
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0.05
+    Pose Style: None
+    Buffer Length: 1
+  - Class: rviz_default_plugins/Path
+    Name: Local Path
+    Enabled: true
+    Topic:
+      Value: /local_plan
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+      Depth: 1
+    Color: 0; 255; 160
+    Alpha: 1
+    Line Style: Billboards
+    Line Width: 0.025
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0.06
+    Pose Style: None
+    Buffer Length: 1
+  - Class: rviz_default_plugins/Map
+    Name: Global Costmap
+    Enabled: true
+    Topic:
+      Value: /global_costmap/costmap
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Update Topic:
+      Value: /global_costmap/costmap_updates
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Color Scheme: costmap
+    Alpha: 0.25
+  - Class: rviz_default_plugins/Map
+    Name: Local Costmap
+    Enabled: true
+    Topic:
+      Value: /local_costmap/costmap
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Update Topic:
+      Value: /local_costmap/costmap_updates
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Color Scheme: costmap
+    Alpha: 0.4
+  - Class: rviz_default_plugins/PointCloud2
+    Name: Accumulated Color Map
+    Enabled: true
+    Topic:
+      Value: /odin_3d/color_map
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Color Transformer: RGB8
+    Position Transformer: XYZ
+    Size (Pixels): 2
+    Style: Points
+    Decay Time: 0
+  - Class: rviz_default_plugins/PointCloud2
+    Name: Native Color Preview
+    Enabled: true
+    Topic:
+      Value: /odin_3d/color_preview
+      Reliability Policy: Best Effort
+    Color Transformer: RGB8
+    Position Transformer: XYZ
+    Size (Pixels): 2
+    Style: Points
+    Decay Time: 0
+  - Class: rviz_default_plugins/Map
+    Name: Ground Support
+    Enabled: true
+    Topic:
+      Value: /odin_3d/surface
+      Reliability Policy: Best Effort
+    Alpha: 0.5
+  - Class: rviz_default_plugins/TF
+    Name: TF
+    Enabled: true
+  Tools:
+  - Class: rviz_default_plugins/Interact
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: nav2_rviz_plugins/GoalTool
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 8
+      Pitch: 0.7
+      Yaw: 0.7
+Window Geometry:
+  Width: 1100
+  Height: 750

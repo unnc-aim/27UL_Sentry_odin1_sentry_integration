@@ -1,0 +1,44 @@
+status: implemented_pending_vehicle_validation
+robot:
+  height_m: 0.5
+  ground_clearance_m: 0.05
+  max_slope_degrees: 30.0
+  max_slope_status: user_selected_limit_pending_vehicle_trial
+  footprint_source: reuse_current_navigation_configuration
+  step_height_limit_m: 0.03
+  step_height_status: conservative_software_limit_pending_vehicle_trial
+  openings:
+  - height_m: 0.6
+    width_m: 0.9
+    expected: candidate_passage
+  - height_m: 0.45
+    width_m: 0.9
+    expected: height_obstacle
+reuse:
+  mount_file: odin_sentry_bringup/config/mount.yaml
+  raw_filter_file: odin_sentry_bringup/config/raw_obstacles.yaml
+  terrain_package: terrain_analysis
+  controller: pb_omni_pid_pursuit_controller
+  competition_tree: behavior/competition_phase1
+added_terrain:
+  preferred_library: PCL NormalEstimation / Eigen
+  initial_window_m:
+  - 18.0
+  - 18.0
+  initial_resolution_m: 0.05
+  initial_rate_hz: 10.0
+  obstacle_support: 3
+  clearance_support: 6
+  missing_ground: unknown
+  ground_mode: flat
+display:
+  colored_cloud_source: /odin1/cloud_slam
+  preview_rate_hz: 10.0
+navigation:
+  max_linear_speed_mps: 4.0
+  linear_acceleration_mps2: 2.5
+  lateral_acceleration_mps2: 2.5
+  linear_deceleration_mps2: 2.5
+  max_lookahead_m: 1.0
+  raw_range_m: 10.0
+  near_filter_range_m: 4.0

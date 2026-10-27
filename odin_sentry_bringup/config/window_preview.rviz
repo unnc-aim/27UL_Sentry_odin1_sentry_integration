@@ -1,0 +1,75 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Enabled: true
+  Name: root
+  Value: true
+  Global Options:
+    Background Color: 35; 35; 35
+    Fixed Frame: lidar
+    Frame Rate: 10
+  Displays:
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Original
+      Enabled: true
+      Topic:
+        Value: /odin_window/preview/original
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 2
+      Color Transformer: FlatColor
+      Color: 170; 170; 170
+      Position Transformer: XYZ
+      Style: Points
+      Size (Pixels): 2
+      Decay Time: 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Corrected preview
+      Enabled: true
+      Topic:
+        Value: /odin_window/preview/cloud
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 2
+      Color Transformer: FlatColor
+      Color: 0; 220; 255
+      Position Transformer: XYZ
+      Style: Points
+      Size (Pixels): 2
+      Decay Time: 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Corrected points only
+      Enabled: false
+      Topic:
+        Value: /odin_window/preview/corrected_only
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 2
+      Color Transformer: FlatColor
+      Color: 0; 255; 70
+      Position Transformer: XYZ
+      Style: Points
+      Size (Pixels): 4
+      Decay Time: 0
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 2.5
+      Pitch: 0.2
+      Yaw: 1.2
+      Focal Point: {X: 0.8, Y: 0.0, Z: 0.0}
+Window Geometry:
+  Width: 1200
+  Height: 800

@@ -1,0 +1,68 @@
+# Capture paths are relative to --data-root. All output goes to a new --output directory.
+reference_mode: optical_axis
+observation_face_offset_m: 0.0
+reference_offset_uncertainty_m: 0.03
+imu_height_m: 0.43
+wall_top_is_level: true
+# Reviewed against all four saved images in workflow_geometry_review/geometry_review.png.
+image_reviewed: true
+minimum_frame_coverage: 0.8
+methods: [offset, scale, piecewise]
+model:
+  min_confidence: 35
+  min_raw_gap_m: 0.01
+  min_gain: 0.2
+  max_gain: 6.0
+  direction_tolerance_deg: 0.15
+filter:
+  min_confidence: 35
+  max_range_m: 4.0
+  self_radius_m: 0.15
+  neighbor_radius_m: 0.04
+  reference_neighbors: 20
+  filter_range_m: 4.0
+evaluation:
+  distance_error_p95_m: 0.05
+  minimum_direction_coverage: 0.8
+  minimum_object_points: 3
+  minimum_object_frame_fraction: 0.95
+  minimum_point_retention_fraction: 0.95
+  obstacle_height_min_m: 0.10
+  obstacle_height_max_m: 0.55
+captures:
+  - name: wall_050
+    folder: 050cm_20261026_203427
+    role: train
+    roi: [200, 1400, 300, 950]
+    edge_hints: [[250, 150], [550, 82], [800, 73], [1100, 108], [1350, 201]]
+    floor_roi: [500, 1100, 1140, 1210]
+  - name: wall_080
+    folder: 080cm_20261026_202109
+    role: train
+    roi: [250, 1350, 400, 860]
+    edge_hints: [[250, 275], [550, 232], [800, 222], [1100, 250], [1350, 307]]
+    floor_roi: [450, 1150, 1020, 1120]
+  - name: wall_120
+    folder: 120cm_20261026_202705
+    role: train
+    roi: [250, 1350, 430, 760]
+    edge_hints: [[250, 383], [550, 344], [800, 339], [1100, 357], [1350, 406]]
+    floor_roi: [400, 1200, 920, 1060]
+  - name: wall_100_review
+    folder: 100cm_20261026_204138
+    role: review
+    roi: [250, 1350, 400, 800]
+    edge_hints: [[250, 316], [550, 275], [800, 270], [1100, 306], [1350, 369]]
+    floor_roi: [400, 1200, 980, 1080]
+  - name: object_080
+    folder: 080cm_20261026_181612
+    role: object
+    roi: [740, 850, 758, 960]
+  - name: object_100_left
+    folder: 100cm_20261026_192638
+    role: object
+    roi: [705, 810, 735, 885]
+  - name: object_100_right
+    folder: 100cm_20261026_192114
+    role: object
+    roi: [800, 910, 735, 890]
